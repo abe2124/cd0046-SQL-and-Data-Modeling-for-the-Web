@@ -66,20 +66,31 @@ def venues():
   # TODO: replace with real venues data.
   #       num_upcoming_shows should be aggregated based on number of upcoming shows per venue.
 
-  venues_data = []
-  venues_city = Venue.query.distinct(Venue.city, Venue.state).all()
-  for x in venues_city:
-    venues = Venue.query.filter_by(city=x.city, state=x.state).all()
-    city_list = []
-    for y in venues:
-      city_list.append({'id':y.id, 'name': y.name})
-      venues_data.append({
-        'city': x.city,
-        'state': x.state,
-        'venues': city_list
-      })
-      return render_template('pages/venues.html', areas=venues_data)
-
+  venues_data = [
+      {
+        "city": x.city,
+        "state": x.state, 
+        "venues": [
+          {
+            "id": venue.id,
+            "name": venue.name, 
+          }
+          for venue in Venue.query.filter(
+            Venue.city == x.city, 
+            Venue.state == x.state
+          ).all()
+        ]
+      }
+      
+      for x in db.session.query(
+        Venue.city, 
+        Venue.state
+      ).group_by(
+        Venue.city, 
+        Venue.state
+      ).distinct().all()
+  ]
+  return render_template('pages/venues.html', areas=venues_data)
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
@@ -156,7 +167,6 @@ def show_venue(venue_id):
             "start_time": show.start_time
            })
 
-  
   return render_template('pages/show_venue.html', venue=show_venue_result)
 
 #  Create Venue
@@ -214,16 +224,7 @@ def artists():
 
   artists = Artist.query.all()
   data = artists
-  # data=[{
-  #   "id": 4,
-  #   "name": "Guns N Petals",
-  # }, {
-  #   "id": 5,
-  #   "name": "Matt Quevedo",
-  # }, {
-  #   "id": 6,
-  #   "name": "The Wild Sax Band",
-  # }]
+  
   return render_template('pages/artists.html', artists=data)
 
 @app.route('/artists/search', methods=['POST'])
@@ -238,14 +239,7 @@ def search_artists():
     "count":len(results),
     "data":results
   }
-  # response={
-  #   "count": 1,
-  #   "data": [{
-  #     "id": 4,
-  #     "name": "Guns N Petals",
-  #     "num_upcoming_shows": 0,
-  #   }]
-  # }
+ 
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/artists/<int:artist_id>')
@@ -285,6 +279,8 @@ def show_artist(artist_id):
   #show_artist_result['genres'].append(data_db.genres)
   show_artist_result['seeking_venue'] = str(data_db.looking_venue).lower() in ['true', '1', 't', 'y', 'yes']
   #show_artist_result['genres'].append(data_db.genres)
+  
+  
   for gener in data_db.genres:
         show_artist_result['genres'].append(gener)
 
@@ -353,7 +349,6 @@ def edit_artist_submission(artist_id):
 def edit_venue(venue_id):
   form = VenueForm()
 
- 
   # TODO: populate form with values from venue with ID <venue_id>
   venue= Venue.query.get(venue_id)
   return render_template('forms/edit_venue.html', form=form, venue=venue)
